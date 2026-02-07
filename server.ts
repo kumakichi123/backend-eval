@@ -7,6 +7,7 @@ import jwt from 'jsonwebtoken';
 import { Pool } from 'pg';
 import Joi from 'joi';
 import XLSX from 'xlsx';
+import crypto from 'crypto';
 
 dotenv.config();
 
@@ -25,7 +26,8 @@ if (!SUPABASE_JWT_SECRET) {
 const app = express();
 app.use(helmet());
 app.use(cors());
-app.use(express.json({ limit: '1mb' }));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.static('public'));
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
@@ -461,76 +463,112 @@ app.get('/api/export/:tenantId/:role', async (req, res) => {
   }
 });
 
-app.post('/api/dify/generate', async (req, res) => {
-  const { tenantId, role, seedText, style } = req.body || {};
-  if (!tenantId || !role || !seedText) {
-    return res.status(400).json({ error: 'tenantId, role, seedText required' });
+app.post('/api/dify/chat', async (req, res) => {
+  const { tenantId, message, conversationId, userId } = req.body || {};
+  if (!tenantId || !message) {
+    return res.status(400).json({ error: 'tenantId and message required' });
   }
 
-  const prompt = buildDifyPrompt(role, seedText);
-  const fallback = buildFallbackResponse(role, seedText);
   const apiKey = process.env.DIFY_API_KEY;
   if (!apiKey) {
-    return res.json({ ...fallback, promptUsed: prompt, from: 'mock' });
+    return res.status(500).json({ error: 'DIFY_API_KEY not configured' });
   }
 
+  const baseUrl = process.env.DIFY_BASE_URL || 'https://api.dify.ai/v1';
   try {
-    const response = await fetch('https://api.dify.ai/v1/workflows/run', {
+    const response = await fetch(`${baseUrl}/chat-messages`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${apiKey}`
       },
       body: JSON.stringify({
+        inputs: {},
+        query: message,
         response_mode: 'blocking',
-        user: `tenant:${tenantId}`,
-        inputs: {
-          tenantId,
-          role,
-          seedText,
-          style: style ?? ''
-        }
+        conversation_id: conversationId ?? undefined,
+        user: userId ?? `tenant:${tenantId}`
       })
     });
 
     if (!response.ok) {
-      throw new Error(`Dify status ${response.status}`);
+      const errorText = await response.text();
+      return res.status(response.status).json({ error: 'dify error', detail: errorText });
     }
 
     const data = await response.json();
-    console.log('dify.generate response', JSON.stringify(data));
-    const status = (data?.status || data?.data?.status || '').toString().toLowerCase();
-    if (status && status !== 'succeeded') {
-      const errorMessage =
-        data?.error ||
-        data?.message ||
-        data?.data?.error ||
-        data?.data?.message ||
-        'Dify workflow returned a failed status';
-      throw new Error(errorMessage);
-    }
-
-    const rawText =
-      data?.data?.output_text ||
-      data?.data?.outputs?.output_text ||
-      data?.data?.outputs?.text ||
-      data?.data?.outputs?.[0]?.output_text ||
-      data?.data?.outputs?.[0]?.text ||
-      data?.output_text ||
-      data?.outputs?.output_text ||
-      data?.outputs?.text ||
-      data?.outputs?.[0]?.output_text ||
-      data?.outputs?.[0]?.text ||
-      '';
-    if (!rawText) {
-      throw new Error('Dify response missing output_text');
-    }
-
-    const parsed = parseDifyOutput(rawText);
-    return res.json({ ...parsed, promptUsed: prompt, from: 'dify' });
+    return res.json({
+      answer: data?.answer ?? '',
+      conversationId: data?.conversation_id ?? conversationId ?? null,
+      messageId: data?.message_id ?? null,
+      raw: data
+    });
   } catch (err: any) {
-    console.error('dify.generate failed', err);
-    return res.json({ ...fallback, promptUsed: prompt, from: 'mock', error: err?.message || 'dify error' });
+    console.error('dify.chat failed', err);
+    return res.status(500).json({ error: err?.message || 'dify error' });
+  }
+});
+
+app.post('/api/x/media', async (req, res) => {
+  const { dataBase64, contentType } = req.body || {};
+  if (!dataBase64 || !contentType) {
+    return res.status(400).json({ error: 'dataBase64 and contentType required' });
+  }
+
+  const mediaBuffer = Buffer.from(dataBase64, 'base64');
+  const form = new FormData();
+  form.append('media', new Blob([mediaBuffer], { type: contentType }), 'upload');
+
+  const url = 'https://upload.twitter.com/1.1/media/upload.json';
+  const authHeader = buildOAuthHeader('POST', url);
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { Authorization: authHeader },
+      body: form
+    });
+    const payload = await response.json();
+    if (!response.ok) {
+      return res.status(response.status).json({ error: 'x upload failed', detail: payload });
+    }
+    return res.json({ mediaId: payload?.media_id_string ?? payload?.media_id, raw: payload });
+  } catch (err: any) {
+    console.error('x media upload failed', err);
+    return res.status(500).json({ error: err?.message || 'x upload error' });
+  }
+});
+
+app.post('/api/x/post', async (req, res) => {
+  const { text, mediaIds } = req.body || {};
+  if (!text) {
+    return res.status(400).json({ error: 'text required' });
+  }
+
+  const url = 'https://api.twitter.com/2/tweets';
+  const authHeader = buildOAuthHeader('POST', url);
+  const body = {
+    text,
+    ...(Array.isArray(mediaIds) && mediaIds.length > 0 ? { media: { media_ids: mediaIds } } : {})
+  };
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        Authorization: authHeader,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(body)
+    });
+    const payload = await response.json();
+    if (!response.ok) {
+      return res.status(response.status).json({ error: 'x post failed', detail: payload });
+    }
+    return res.json({ data: payload?.data ?? payload });
+  } catch (err: any) {
+    console.error('x post failed', err);
+    return res.status(500).json({ error: err?.message || 'x post error' });
   }
 });
 
@@ -544,45 +582,40 @@ app.listen(port, () => {
   console.log('listening', port);
 });
 
-function buildDifyPrompt(role: string, seedText: string) {
-  const trimmed = seedText.trim().replace(/\s+/g, ' ');
-  return [
-    `You are assisting a kindergarten in defining competency rubrics.`,
-    `Base your response on this observation: "${trimmed}".`,
-    `Return valid JSON: {"definition": "...", "rubric": ["5: ...","4: ...","3: ...","2: ...","1: ..."], "example": "..."}.`,
-    `The definition must mention the role "${role}" and be within 80 Japanese characters.`,
-    `Each rubric entry must describe the proficiency level in concise Japanese (<=40 chars).`,
-    `The example should be a single sentence showing level 5 behaviour.`
-  ].join('\n');
-}
+function buildOAuthHeader(method: string, url: string) {
+  const consumerKey = process.env.X_CONSUMER_KEY;
+  const consumerSecret = process.env.X_CONSUMER_SECRET;
+  const accessToken = process.env.X_ACCESS_TOKEN;
+  const accessTokenSecret = process.env.X_ACCESS_TOKEN_SECRET;
 
-function buildFallbackResponse(role: string, seedText: string) {
-  const base = seedText.trim().replace(/\s+/g, ' ');
-  const core = base.slice(0, 40) || '観察メモ';
-  const itemName = `${role}:${core}`;
-  const itemDescription = `${core} に関する簡易コンピテンシー項目（フォールバック生成）`;
-  return { itemName, itemDescription };
-}
-
-
-function parseDifyOutput(text: string) {
-  const cleaned = text.trim().replace(/^```json/i, '').replace(/```$/, '').trim();
-  try {
-    const parsed = JSON.parse(cleaned);
-    const itemName = typeof parsed.itemName === 'string' ? parsed.itemName.trim() : '';
-    const itemDescription = typeof parsed.itemDescription === 'string' ? parsed.itemDescription.trim().replace(/\\\n/g, '\n') : '';
-    if (itemName || itemDescription) {
-      return { itemName, itemDescription };
-    }
-  } catch {
-    // ignore parse errors and fall through
+  if (!consumerKey || !consumerSecret || !accessToken || !accessTokenSecret) {
+    throw new Error('X OAuth credentials not configured');
   }
-  const lines = cleaned.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
-  return {
-    itemName: lines[0] || 'AI???????',
-    itemDescription: lines.slice(1).join('\n') || lines[0] || ''
+
+  const oauthParams: Record<string, string> = {
+    oauth_consumer_key: consumerKey,
+    oauth_nonce: crypto.randomBytes(16).toString('hex'),
+    oauth_signature_method: 'HMAC-SHA1',
+    oauth_timestamp: Math.floor(Date.now() / 1000).toString(),
+    oauth_token: accessToken,
+    oauth_version: '1.0'
   };
+
+  const baseString = buildSignatureBaseString(method, url, oauthParams);
+  const signingKey = `${encodeURIComponent(consumerSecret)}&${encodeURIComponent(accessTokenSecret)}`;
+  const signature = crypto.createHmac('sha1', signingKey).update(baseString).digest('base64');
+
+  const headerParams = { ...oauthParams, oauth_signature: signature };
+  const header = Object.entries(headerParams)
+    .map(([key, value]) => `${encodeURIComponent(key)}=\"${encodeURIComponent(value)}\"`)
+    .join(', ');
+  return `OAuth ${header}`;
 }
 
-
-
+function buildSignatureBaseString(method: string, url: string, oauthParams: Record<string, string>) {
+  const normalizedParams = Object.entries(oauthParams)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(value)}`)
+    .join('&');
+  return [method.toUpperCase(), encodeURIComponent(url), encodeURIComponent(normalizedParams)].join('&');
+}

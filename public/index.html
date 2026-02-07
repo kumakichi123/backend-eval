@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Lavender X Studio</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --lavender: #cbb7f3;
+        --lavender-deep: #9d7bd8;
+        --lavender-soft: #efe9fb;
+        --white: #ffffff;
+        --ink: #2a2433;
+        --muted: #6d647c;
+        --border: rgba(157, 123, 216, 0.2);
+        --shadow: 0 24px 60px rgba(157, 123, 216, 0.2);
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font-family: "Noto Sans JP", "Hiragino Kaku Gothic ProN", system-ui, -apple-system, sans-serif;
+        color: var(--ink);
+        background: linear-gradient(180deg, var(--lavender-soft), #ffffff 45%);
+        animation: pageFade 1s ease-out both;
+      }
+      a {
+        color: inherit;
+        text-decoration: none;
+      }
+      header {
+        padding: 32px 8vw 72px;
+        background: var(--white);
+        border-bottom: 1px solid var(--border);
+        position: relative;
+        overflow: hidden;
+      }
+      header::after {
+        content: "";
+        position: absolute;
+        inset: -40% -20% auto auto;
+        width: 320px;
+        height: 320px;
+        background: radial-gradient(circle, rgba(203, 183, 243, 0.35), transparent 70%);
+        opacity: 0.8;
+        animation: floatGlow 8s ease-in-out infinite;
+        pointer-events: none;
+      }
+      .nav {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 20px;
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        font-weight: 700;
+        font-size: 1rem;
+      }
+      .brand-badge {
+        width: 36px;
+        height: 36px;
+        border-radius: 12px;
+        background: linear-gradient(135deg, var(--lavender), var(--lavender-deep));
+        box-shadow: var(--shadow);
+        animation: pulseGlow 4s ease-in-out infinite;
+      }
+      .nav-links {
+        display: flex;
+        gap: 18px;
+        font-size: 0.9rem;
+        color: var(--muted);
+      }
+      .hero {
+        margin-top: 48px;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 32px;
+        align-items: center;
+        animation: slideIn 1s ease-out both;
+      }
+      .hero h1 {
+        font-size: clamp(2rem, 3.3vw, 3.2rem);
+        margin: 0 0 16px;
+        line-height: 1.3;
+      }
+      .hero p {
+        margin: 0 0 24px;
+        color: var(--muted);
+        line-height: 1.8;
+      }
+      .cta {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        padding: 12px 24px;
+        border-radius: 999px;
+        border: 1px solid var(--lavender-deep);
+        color: var(--lavender-deep);
+        background: #ffffff;
+        font-weight: 600;
+      }
+      .hero-card {
+        background: var(--lavender-soft);
+        border-radius: 20px;
+        padding: 24px;
+        border: 1px solid var(--border);
+        box-shadow: var(--shadow);
+        position: relative;
+        overflow: hidden;
+      }
+      .hero-card::after {
+        content: "";
+        position: absolute;
+        inset: auto -20% -50% auto;
+        width: 220px;
+        height: 220px;
+        background: radial-gradient(circle, rgba(157, 123, 216, 0.25), transparent 70%);
+        animation: floatGlow 10s ease-in-out infinite;
+      }
+      .hero-card h3 {
+        margin: 0 0 12px;
+        font-size: 1.1rem;
+      }
+      .hero-card ul {
+        margin: 0;
+        padding-left: 18px;
+        color: var(--muted);
+        line-height: 1.7;
+      }
+      main {
+        padding: 60px 8vw 80px;
+        display: grid;
+        gap: 48px;
+      }
+      .section-title {
+        margin: 0 0 10px;
+        font-size: 1.5rem;
+      }
+      .section-sub {
+        margin: 0;
+        color: var(--muted);
+      }
+      .grid {
+        margin-top: 24px;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 20px;
+      }
+      .card {
+        padding: 22px;
+        border-radius: 18px;
+        border: 1px solid var(--border);
+        background: var(--white);
+        display: grid;
+        gap: 12px;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+      }
+      .card:hover {
+        transform: translateY(-6px);
+        box-shadow: var(--shadow);
+      }
+      .card h4 {
+        margin: 0;
+      }
+      .badge {
+        display: inline-flex;
+        padding: 4px 10px;
+        border-radius: 999px;
+        background: var(--lavender-soft);
+        color: var(--lavender-deep);
+        font-size: 0.75rem;
+        font-weight: 600;
+        width: fit-content;
+      }
+      .card p {
+        margin: 0;
+        color: var(--muted);
+        line-height: 1.7;
+      }
+      .flow {
+        display: grid;
+        gap: 16px;
+        margin-top: 20px;
+      }
+      .flow-item {
+        background: var(--white);
+        border-radius: 16px;
+        border: 1px solid var(--border);
+        padding: 18px;
+        display: grid;
+        grid-template-columns: 80px 1fr;
+        gap: 16px;
+        align-items: center;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+      }
+      .flow-item:hover {
+        transform: translateY(-4px);
+        box-shadow: var(--shadow);
+      }
+      .flow-step {
+        font-weight: 700;
+        color: var(--lavender-deep);
+        font-size: 0.9rem;
+      }
+      .cta-banner {
+        background: linear-gradient(135deg, var(--lavender), var(--lavender-soft));
+        border-radius: 24px;
+        padding: 28px;
+        display: grid;
+        gap: 12px;
+        border: 1px solid rgba(157, 123, 216, 0.25);
+        position: relative;
+        overflow: hidden;
+      }
+      .cta-banner::after {
+        content: "";
+        position: absolute;
+        inset: auto auto -60% -20%;
+        width: 260px;
+        height: 260px;
+        background: radial-gradient(circle, rgba(255, 255, 255, 0.45), transparent 70%);
+        animation: floatGlow 12s ease-in-out infinite;
+      }
+      footer {
+        padding: 32px 8vw 48px;
+        color: var(--muted);
+        font-size: 0.85rem;
+      }
+      @media (max-width: 720px) {
+        header {
+          padding: 24px 6vw 56px;
+        }
+        main {
+          padding: 48px 6vw 64px;
+        }
+        .nav-links {
+          display: none;
+        }
+        .flow-item {
+          grid-template-columns: 1fr;
+        }
+      }
+      @keyframes pageFade {
+        from {
+          opacity: 0;
+          transform: translateY(6px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+      @keyframes slideIn {
+        from {
+          opacity: 0;
+          transform: translateY(12px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+      @keyframes pulseGlow {
+        0%,
+        100% {
+          transform: scale(1);
+          box-shadow: 0 10px 24px rgba(157, 123, 216, 0.35);
+        }
+        50% {
+          transform: scale(1.05);
+          box-shadow: 0 18px 32px rgba(157, 123, 216, 0.45);
+        }
+      }
+      @keyframes floatGlow {
+        0%,
+        100% {
+          transform: translate3d(0, 0, 0);
+          opacity: 0.7;
+        }
+        50% {
+          transform: translate3d(-12px, 14px, 0);
+          opacity: 1;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <nav class="nav">
+        <div class="brand">
+          <div class="brand-badge"></div>
+          Lavender X Studio
+        </div>
+        <div class="nav-links">
+          <a href="#features">特徴</a>
+          <a href="#workflow">使い方</a>
+          <a href="#contact">相談</a>
+        </div>
+      </nav>
+      <section class="hero">
+        <div>
+          <h1>チャットで作る、<br />X投稿の運用ルーティン。</h1>
+          <p>
+            Difyのチャットボットと会話しながら、投稿文・画像素材・投稿予約をまとめて設計。
+            迷わず、すばやく、品質を揃えた運用に。
+          </p>
+          <a class="cta" href="#contact">デモ相談 →</a>
+        </div>
+        <div class="hero-card">
+          <h3>できること</h3>
+          <ul>
+            <li>会話ベースで投稿案を生成</li>
+            <li>画像の添付と差し替えも簡単</li>
+            <li>X APIでそのまま投稿</li>
+          </ul>
+        </div>
+      </section>
+    </header>
+
+    <main>
+      <section id="features">
+        <h2 class="section-title">シンプルな機能設計</h2>
+        <p class="section-sub">最小の操作で投稿まで完結。必要な機能だけを丁寧に。</p>
+        <div class="grid">
+          <article class="card">
+            <span class="badge">Chat</span>
+            <h4>チャットで投稿設計</h4>
+            <p>想定ターゲットやトーンを話すだけで投稿案を生成。</p>
+          </article>
+          <article class="card">
+            <span class="badge">Media</span>
+            <h4>画像添付をスムーズに</h4>
+            <p>ドラッグ＆ドロップで画像を追加。差し替えも一発。</p>
+          </article>
+          <article class="card">
+            <span class="badge">Publish</span>
+            <h4>Xへ即投稿</h4>
+            <p>承認後、X API経由で即時投稿・履歴も管理。</p>
+          </article>
+        </div>
+      </section>
+
+      <section id="workflow">
+        <h2 class="section-title">運用フロー</h2>
+        <p class="section-sub">チャット → 画像 → 投稿までを一本道で。</p>
+        <div class="flow">
+          <div class="flow-item">
+            <div class="flow-step">Step 01</div>
+            <div>
+              <h4>目的と素材を入力</h4>
+              <p>キャンペーン内容や素材をチャットで共有。</p>
+            </div>
+          </div>
+          <div class="flow-item">
+            <div class="flow-step">Step 02</div>
+            <div>
+              <h4>投稿案を調整</h4>
+              <p>返信を見ながら投稿文と画像を微調整。</p>
+            </div>
+          </div>
+          <div class="flow-item">
+            <div class="flow-step">Step 03</div>
+            <div>
+              <h4>そのまま投稿</h4>
+              <p>ワンクリックでXへ投稿。履歴も残る。</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="contact" class="cta-banner">
+        <h2 class="section-title">相談・デモ予約</h2>
+        <p class="section-sub">運用ボリュームや目的を教えてください。最適な導線を提案します。</p>
+        <a class="cta" href="mailto:hello@lavenderx.studio">お問い合わせ →</a>
+      </section>
+    </main>
+
+    <footer>
+      <div>© 2024 Lavender X Studio. シンプルなX運用を。</div>
+    </footer>
+  </body>
+</html>

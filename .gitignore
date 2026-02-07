@@ -1,3 +1,10 @@
 node_modules/
 .env
+.env.local
 .next/
+dist/
+.vercel/
+coverage/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
